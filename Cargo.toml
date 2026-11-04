@@ -1,0 +1,8 @@
+[workspace]
+resolver = "3"
+
+[workspace.lints.clippy]
+pedantic = "warn"
+
+[workspace.lints.rust]
+missing_docs = "warn"
