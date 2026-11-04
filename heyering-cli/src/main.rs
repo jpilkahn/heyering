@@ -5,9 +5,14 @@ use std::{fs::File, io::Read, path::PathBuf};
 use anyhow::Result;
 use clap::Parser;
 use csv::ReaderBuilder;
-use heyering_lib::MaliciousActivityRecord;
+use reqwest::Client;
 use thiserror::Error;
+use tokio::time::{Duration, sleep};
 use tracing::Level;
+
+use heyering_lib::{
+    MAX_CHUNK_SIZE, MaliciousActivityRecord, PROCESSOR_API_ADDRESS, RATE_LIMIT_DURATION_SECONDS,
+};
 
 /// Commandline Arguments
 #[derive(Debug, Parser)]
@@ -21,7 +26,7 @@ struct Args {
 /// Result of ingesting CSV file
 struct ReadResult {
     records: Vec<MaliciousActivityRecord>,
-    skipped_erroneous_lines_count: u32,
+    skipped_erroneous_lines_count: usize,
 }
 
 impl ReadResult {
@@ -44,7 +49,8 @@ pub enum CsvReadError {
     MissingOrMalformedHeader(csv::StringRecord),
 }
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     // Initialize tracing
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
@@ -57,22 +63,30 @@ fn main() -> anyhow::Result<()> {
     let result = read_csv(file);
 
     match result {
-        Err(e) => {
-            tracing::error!("Failed to read CSV file: {:?}", e);
-            anyhow::bail!("Failed to read CSV file: {:?}", e);
+        Err(err) => {
+            tracing::error!("Failed to read CSV file: {:?}", err);
+            anyhow::bail!("Failed to read CSV file: {:?}", err);
         }
-        Ok(successful) => {
-            let read_result = successful;
+        Ok(read_result) => {
+            let total_records_length = read_result.records.len();
+            let skipped_erroneous_lines_count = read_result.skipped_erroneous_lines_count;
+            let mut remaining = read_result;
 
             tracing::info!(
                 "Successfully ingested {} lines from input CSV, skipped {} erroneous lines",
-                read_result.records.len(),
-                read_result.skipped_erroneous_lines_count
+                total_records_length,
+                skipped_erroneous_lines_count
             );
 
-            Ok(())
+            tracing::info!("Beginning processing of records");
+
+            process_records(&mut remaining.records).await?;
+
+            tracing::info!("Successfully processed {} records", total_records_length);
         }
     }
+
+    Ok(())
 }
 
 /// Read the colon-separated input CSV into a `ReadResult`
@@ -92,6 +106,12 @@ where
     let mut reader = ReaderBuilder::new().delimiter(b';').from_reader(reader);
 
     let headers = reader.headers()?;
+    // This check does not only verify that the expected CSV headers are
+    // present in the input file, it also ensures that the input is
+    // separated by the expected delimiter (i.e. a semi-colon) and that
+    // the number of fields is 6, as expected. If the the `csv::Reader`
+    // found n fields in the first line parsed, it will conveniently error out
+    // on subsequent lines with a field count other than n.
     if headers != expected_headers {
         return Err(CsvReadError::MissingOrMalformedHeader(headers.to_owned()));
     }
@@ -114,6 +134,46 @@ where
     }
 
     Ok(read_result)
+}
+
+/// Process records
+async fn process_records(records: &mut Vec<MaliciousActivityRecord>) -> anyhow::Result<()> {
+    // let total_records_count = records.len();
+
+    while records.len() > 0 {
+        let chunk = records.split_off(records.len() - std::cmp::min(MAX_CHUNK_SIZE, records.len()));
+
+        tracing::info!("Processing a chunk of length: {}", chunk.len());
+        tracing::info!("Number of unprocessed records remaining: {}", records.len());
+
+        sleep(Duration::from_secs(RATE_LIMIT_DURATION_SECONDS)).await;
+
+        process_chunk(&chunk).await?
+    }
+
+    Ok(())
+}
+
+/// Process chunk
+async fn process_chunk(chunk: &Vec<MaliciousActivityRecord>) -> anyhow::Result<()> {
+    let request_builder = Client::new().post(format!("http://{}/records", PROCESSOR_API_ADDRESS));
+
+    let response = request_builder.json(chunk).send().await?;
+    tracing::debug!("{:?}", response);
+
+    let status = response.status();
+
+    if !status.is_success() {
+        let message = format!(
+            "The processor API responded with status code '{}' and message '{}'.",
+            status,
+            response.text().await?
+        );
+        tracing::error!(message);
+        return Err(anyhow::Error::msg(message));
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

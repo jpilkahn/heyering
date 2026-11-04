@@ -1,28 +1,44 @@
 #![doc = include_str!("../README.md")]
 
-use serde::{Deserialize, Deserializer, Serialize, de::Visitor};
 use std::{fmt::Formatter, net::Ipv4Addr};
+
+use serde::{Deserialize, Deserializer, Serialize, de::Visitor};
+
+/// Address the processor API server is listening on
+pub const PROCESSOR_API_ADDRESS: &'static str = "0.0.0.0:5000";
+
+/// Maximum number of records that can be processed in a single request
+pub const MAX_CHUNK_SIZE: usize = 20;
+
+/// Duration to wait between chunk processing to satisfy rate limit
+pub const RATE_LIMIT_DURATION_SECONDS: u64 = 11;
 
 /// Strongly-typed malicious activity record representing a single line of the input CSV
 #[allow(dead_code)]
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MaliciousActivityRecord {
-    id: i64,
-    asset_name: String,
-    ip: Ipv4Addr,
+    /// Numeric unique identifier of the log line
+    pub id: i64,
+    /// Name of the involved asset (e.g. computer, server, laptop)
+    pub asset_name: String,
+    /// IP address of the involved asset
+    pub ip: Ipv4Addr,
     // Ideally this ought to be represented by `chrono::DateTime<Utc>` or at
     // least `chrono::NaiveDateTime`, but given that the input format is not
     // compliant with RFC 3339, this would require yet another custom
     // (de)serializer.
     // --> Out of scope here given time constraints.
-    created_utc: String,
-    source: String,
-    category: CategoryName,
+    /// Time of log line creation
+    pub created_utc: String,
+    /// Source of log line
+    pub source: String,
+    /// MITE category name belonging to the log line event
+    pub category: CategoryName,
 }
 
 /// MITE category of malicious activity
 #[allow(missing_docs)]
-#[derive(Debug, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all(serialize = "lowercase"))]
 pub enum CategoryName {
     ContentInjection,

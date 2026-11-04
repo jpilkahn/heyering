@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["heyering-cli", "heyering-lib"]
+members = ["heyering-cli", "heyering-lib", "heyering-processor-api"]
 
 [workspace.lints.clippy]
 pedantic = "warn"
