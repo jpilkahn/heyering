@@ -1,11 +1,11 @@
 #![doc = include_str!("../README.md")]
 
-use std::{fmt::Formatter, fs::File, io::Read, net::Ipv4Addr, path::PathBuf};
+use std::{fs::File, io::Read, path::PathBuf};
 
 use anyhow::Result;
 use clap::Parser;
 use csv::ReaderBuilder;
-use serde::{Deserialize, Deserializer, Serialize, de::Visitor};
+use heyering_lib::MaliciousActivityRecord;
 use thiserror::Error;
 use tracing::Level;
 
@@ -16,99 +16,6 @@ struct Args {
     /// Path to the CSV file to be ingested
     #[arg(short, long)]
     path: PathBuf,
-}
-
-/// MITE category of malicious activity
-#[allow(missing_docs)]
-#[derive(Debug, Serialize, PartialEq, Eq)]
-#[serde(rename_all(serialize = "lowercase"))]
-enum Category {
-    ContentInjection,
-    DrivebyCompromise,
-    ExploitPublicFacingApplication,
-    ExternalRemoteServices,
-    HardwareAdditions,
-    Phishing,
-    ReplicationThroughRemovableMedia,
-    SupplyChainCompromise,
-    TrustedRelationship,
-    ValidAccounts,
-}
-
-struct CategoryVisitor;
-
-const CATEGORY_VISITOR_EXPECTING_MSG: &'static str =
-    "a string representing a MITE category of malicious activity";
-
-impl<'de> Visitor<'de> for CategoryVisitor {
-    type Value = Category;
-
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-        formatter.write_str(CATEGORY_VISITOR_EXPECTING_MSG)
-    }
-
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        // Remove common word delimiters and lowercase the input string
-        let normalized_value = value
-            .replace(" ", "")
-            .replace("-", "")
-            .replace("_", "")
-            .to_lowercase();
-
-        // For some categories, even the normalized input value contains
-        // recurring spelling errors.
-        // The below assumes that these ought to be parsed as the category that
-        // (to the human reader) is obviously meant by the misspelled input.
-        match normalized_value.as_str() {
-            "contentinjection" => Ok(Category::ContentInjection),
-            "drivebycompromise" | "compromise(driveby)" => Ok(Category::DrivebyCompromise),
-            "exploitpublicfacingapplication" | "exploitpublicfacing" | "explaoitpublicfacing" => {
-                Ok(Category::ExploitPublicFacingApplication)
-            }
-            "externalremoteservices" | "externalremoteservice" => {
-                Ok(Category::ExternalRemoteServices)
-            }
-            "hardwareadditions" => Ok(Category::HardwareAdditions),
-            "phishing" | "phising" => Ok(Category::Phishing),
-            "replicationthroughremovablemedia" => Ok(Category::ReplicationThroughRemovableMedia),
-            "supplychaincompromise" => Ok(Category::SupplyChainCompromise),
-            "trustedrelationship" => Ok(Category::TrustedRelationship),
-            "validaccounts" | "validaaccounts" => Ok(Category::ValidAccounts),
-            _ => Err(serde::de::Error::custom(format!(
-                "Expected {}, found '{}'",
-                CATEGORY_VISITOR_EXPECTING_MSG, value
-            ))),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for Category {
-    fn deserialize<D>(deserializer: D) -> Result<Category, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_str(CategoryVisitor)
-    }
-}
-
-/// Strongly-typed malicious activity record representing a single line of the input CSV
-#[allow(dead_code)]
-#[derive(Debug, Deserialize, Serialize)]
-struct MaliciousActivityRecord {
-    id: i64,
-    asset_name: String,
-    ip: Ipv4Addr,
-    // Ideally this ought to be represented by `chrono::DateTime<Utc>` or at
-    // least `chrono::NaiveDateTime`, but given that the input format is not
-    // compliant with RFC 3339, this would require yet another custom
-    // (de)serializer.
-    // --> Out of scope here given time constraints.
-    created_utc: String,
-    source: String,
-    category: Category,
 }
 
 /// Result of ingesting CSV file
