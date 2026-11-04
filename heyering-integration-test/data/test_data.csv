@@ -1,0 +1,32 @@
+id;asset_name;ip;created_utc;source;category
+119611;server_horizon;102.145.229.227;27/02/2024 00:00;pxtrpf;explaoit-public facing
+142280;address_artichoke;118.123.166.144;06/09/2024 00:00;defender;valida_accounts
+315061;server_spray;18.147.227.44;08/04/2024 00:00;crowdstrike;supply chain compromise
+402618;server_spark;8.245.154.104;04/02/2024 00:00;pxtrpf;phising
+657001;server_serenade;99.111.27.245;17/08/2024 00:00;pxtrpf;phising
+281682;name_flare;15.232.2.167;12/06/2024 00:00;crowdstrike_cs;Replication through removable media
+856468;script_shrine;98.157.98.17;03/06/2024 00:00;crowdstrike;phising
+958471;server_sonic;41.139.178.210;04/10/2024 00:00;xpklnr;Replication through removable media
+867814;automated_azalea;25.133.203.93;16/08/2024 00:00;crowdstrike;external-remote-service
+728170;server_spark;8.245.154.104;31/05/2024 00:00;pxtrpf;content_injection
+255966;name_flu;210.139.189.4;03/05/2024 00:00;pxtrpf;content injection
+722426;name_stimulate;212.181.255.207;31/05/2024 00:00;crowdstrike_cs;external-remote-service
+351808;name_spray;56.165.175.235;29/07/2024 00:00;defender;phising
+276086;byte_barn;164.235.149.167;13/03/2024 00:00;xpklnr;external-remote-service
+401991;server_spark;8.245.154.104;19/05/2024 00:00;pxtrpf;trusted relationship
+629977;byte_brigade;216.143.218.34;01/02/2024 00:00;pxtrpf;trusted relationship
+236533;server_sonic;254.140.235.133;30/09/2024 00:00;pxtrpf;phising
+720959;name_flash;138.17.221.79;08/07/2024 00:00;defender;phising
+856872;server_spray;210.159.245.199;01/08/2024 00:00;pxtrpf;trusted relationship
+397081;network_narcissus;255.67.121.67;25/02/2024 00:00;defender;exploit public facing
+765559;server_summit;36.209.179.4;31/07/2024 00:00;crowdstrike;exploit public facing
+738463;network_narcissus;255.67.121.67;01/08/2024 00:00;defender;supply chain compromise
+375414;server_spray;18.147.227.44;25/09/2024 00:00;crowdstrike;valid accounts
+879864;server_spray;244.110.8.40;05/06/2024 00:00;xpklnr;phising
+697221;name_rave;190.13.109.124;31/03/2024 00:00;defender;Phising
+960893;connection_cacao;15.201.87.20;21/06/2024 00:00;xpklnr;supply chain compromise
+787903;name_flare;15.232.2.167;23/02/2024 00:00;crowdstrike_cs;drive by compromise
+297341;server_sprout;37.68.185.154;26/04/2024 00:00;defender;phising
+231391;node_nest;122.139.122.39;22/05/2024 00:00;pxtrpf;phising
+737797;byte_barn;164.235.149.167;27/01/2024 00:00;xpklnr;trusted relationship
+744180;spark_shrine;187.24.234.40;04/06/2024 00:00;crowdstrike;drive-by-compromise
