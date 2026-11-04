@@ -1,11 +1,11 @@
 #![doc = include_str!("../README.md")]
 
-use std::{fs::File, io::Read, net::Ipv4Addr, path::PathBuf};
+use std::{fmt::Formatter, fs::File, io::Read, net::Ipv4Addr, path::PathBuf};
 
 use anyhow::Result;
 use clap::Parser;
 use csv::ReaderBuilder;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer, Serialize, de::Visitor};
 use thiserror::Error;
 use tracing::Level;
 
@@ -18,20 +18,97 @@ struct Args {
     path: PathBuf,
 }
 
+/// MITE category of malicious activity
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all(serialize = "lowercase"))]
+enum Category {
+    ContentInjection,
+    DrivebyCompromise,
+    ExploitPublicFacingApplication,
+    ExternalRemoteServices,
+    HardwareAdditions,
+    Phishing,
+    ReplicationThroughRemovableMedia,
+    SupplyChainCompromise,
+    TrustedRelationship,
+    ValidAccounts,
+}
+
+struct CategoryVisitor;
+
+const CATEGORY_VISITOR_EXPECTING_MSG: &'static str =
+    "a string representing a MITE category of malicious activity";
+
+impl<'de> Visitor<'de> for CategoryVisitor {
+    type Value = Category;
+
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+        formatter.write_str(CATEGORY_VISITOR_EXPECTING_MSG)
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        // Remove common word delimiters and lowercase the input string
+        let normalized_value = value
+            .replace(" ", "")
+            .replace("-", "")
+            .replace("_", "")
+            .to_lowercase();
+
+        // For some categories, even the normalized input value contains
+        // recurring spelling errors.
+        // The below assumes that these ought to be parsed as the category that
+        // (to the human reader) is obviously meant by the misspelled input.
+        match normalized_value.as_str() {
+            "contentinjection" => Ok(Category::ContentInjection),
+            "drivebycompromise" | "compromise(driveby)" => Ok(Category::DrivebyCompromise),
+            "exploitpublicfacingapplication" | "exploitpublicfacing" | "explaoitpublicfacing" => {
+                Ok(Category::ExploitPublicFacingApplication)
+            }
+            "externalremoteservices" | "externalremoteservice" => {
+                Ok(Category::ExternalRemoteServices)
+            }
+            "hardwareadditions" => Ok(Category::HardwareAdditions),
+            "phishing" | "phising" => Ok(Category::Phishing),
+            "replicationthroughremovablemedia" => Ok(Category::ReplicationThroughRemovableMedia),
+            "supplychaincompromise" => Ok(Category::SupplyChainCompromise),
+            "trustedrelationship" => Ok(Category::TrustedRelationship),
+            "validaccounts" | "validaaccounts" => Ok(Category::ValidAccounts),
+            _ => Err(serde::de::Error::custom(format!(
+                "Expected {}, found '{}'",
+                CATEGORY_VISITOR_EXPECTING_MSG, value
+            ))),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Category {
+    fn deserialize<D>(deserializer: D) -> Result<Category, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_str(CategoryVisitor)
+    }
+}
+
 /// Strongly-typed malicious activity record representing a single line of the input CSV
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct MaliciousActivityRecord {
     id: i64,
     asset_name: String,
     ip: Ipv4Addr,
     // Ideally this ought to be represented by `chrono::DateTime<Utc>` or at
     // least `chrono::NaiveDateTime`, but given that the input format is not
-    // compliant with RFC 3339 this would require a custom (de)serializer.
-    // Might be out of scope here given time constraints.
+    // compliant with RFC 3339, this would require yet another custom
+    // (de)serializer.
+    // --> Out of scope here given time constraints.
     created_utc: String,
     source: String,
-    category: String,
+    category: Category,
 }
 
 /// Result of ingesting CSV file
@@ -142,7 +219,7 @@ mod tests {
 315061;server_spray;18.147.227.44;08/04/2024 00:00;crowdstrike;supply chain compromise";
 
     const INVALID_CSV_DATA: &str = "id;asset_name;ip;created_utc;source;category
-119611;server_horizon;102.145.229.227;27/02/2024 00:00;pxtrpf;explaoit-public facing
+119611;server_horizon;102.145.229.227;27/02/2024 00:00;pxtrpf;exploit-pubic facing
 142280;address_artichoke;118.123.166.144;06/09/2024 00:00;defender
 315061;server_spray;42;08/04/2024 00:00;crowdstrike;supply chain compromise";
 
@@ -171,8 +248,8 @@ mod tests {
 
         let read_result = result.unwrap();
 
-        assert_eq!(read_result.records.len(), 1);
-        assert_eq!(read_result.skipped_erroneous_lines_count, 2);
+        assert_eq!(read_result.records.len(), 0);
+        assert_eq!(read_result.skipped_erroneous_lines_count, 3);
     }
 
     #[test]
