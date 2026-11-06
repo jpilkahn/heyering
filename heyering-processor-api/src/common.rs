@@ -1,6 +1,10 @@
 use reqwest::{Client, RequestBuilder, StatusCode};
 
 /// Value for the Authorization header
+///
+/// In a real-world production scenario, this value would obviously not be
+/// directly baked into the application's source code, but rather would be
+/// fetched from some secrets store in the respective deployment environment.
 const AUTHORIZATION_HEADER_VALUE: &'static str = "eye-am-hiring";
 
 /// Heyering API base URL

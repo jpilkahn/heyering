@@ -138,8 +138,6 @@ where
 
 /// Process records
 async fn process_records(records: &mut Vec<MaliciousActivityRecord>) -> anyhow::Result<()> {
-    // let total_records_count = records.len();
-
     while records.len() > 0 {
         let chunk = records.split_off(records.len() - std::cmp::min(MAX_CHUNK_SIZE, records.len()));
 
